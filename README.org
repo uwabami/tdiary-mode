@@ -23,6 +23,9 @@
 ;; スタイルに応じて: org スタイル
 (setq  tdiary-style-mode 'org-mode
        tdiary-text-suffix ".org")
+;; スタイルに応じて: tDiary as html スタイル
+;; (setq  tdiary-style-mode 'html-mode
+;;        tdiary-text-suffix ".td")
 ;; スタイルに応じて: gfm スタイル
 ;; (setq  tdiary-style-mode 'markdown-mode
 ;;        tdiary-text-suffix ".md")
