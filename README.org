@@ -23,6 +23,9 @@
 ;; スタイルに応じて: org スタイル
 (setq  tdiary-style-mode 'org-mode
        tdiary-text-suffix ".org")
+;; スタイルに応じて: tDiary as html スタイル
+;; (setq  tdiary-style-mode 'html-mode
+;;        tdiary-text-suffix ".td")
 ;; スタイルに応じて: gfm スタイル
 ;; (setq  tdiary-style-mode 'markdown-mode
 ;;        tdiary-text-suffix ".md")
@@ -55,6 +58,20 @@
 M-x tdiary-password-save
   #+END_EXAMPLE
   として下さい(そのうち =auth-source= に対応する予定です).
+
+* Notice
+
+  上手く書き込みできない場合に、ご自身のtDiaryでCSRFの設定がどうなっているかを
+確認してください。
+
+  tDiaryが動いているマシンにsshできるのであれば、CSRFのキーを設定ファイルから
+抜き出して設定する方法もあるようです。
+
+  sshができない場合は、何かしらの対策をする必要がありますが、今は、作業されて
+いないので、あなたの Contribution に期待します。
+
+標準の設定のままであれば、refererの設定だけがonで、CSRFはoffになっているはずです。
+(全部は把握していませんが、tDiary 4系列では)
 
 * ToDO [/]
 
