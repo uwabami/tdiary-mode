@@ -20,6 +20,8 @@
 (setq tdiary-text-directory (expand-file-name "~/path-to-saved-diary"))
 ;; preview に使う関数
 (setq tdiary-browser-function 'browse-url)
+;; csrf key
+(setq tdiary-csrf-key "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 ;; スタイルに応じて: org スタイル
 (setq  tdiary-style-mode 'org-mode
        tdiary-text-suffix ".org")
@@ -61,17 +63,13 @@ M-x tdiary-password-save
 
 * Notice
 
-  上手く書き込みできない場合に、ご自身のtDiaryでCSRFの設定がどうなっているかを
-確認してください。
+  上手く書き込みできない場合にはご自身のtDiaryで
+  CSRFの設定がどうなっているかを確認してください.
+  tDiaryが動いているマシンにsshできるのであればCSRF KEYは
+  =tdiary.conf= に書いてあります.
 
-  tDiaryが動いているマシンにsshできるのであれば、CSRFのキーを設定ファイルから
-抜き出して設定する方法もあるようです。
-
-  sshができない場合は、何かしらの対策をする必要がありますが、今は、作業されて
-いないので、あなたの Contribution に期待します。
-
-標準の設定のままであれば、refererの設定だけがonで、CSRFはoffになっているはずです。
-(全部は把握していませんが、tDiary 4系列では)
+  sshができない場合は何かしらの方法でCSRF KEYを知る必要がありますが,
+  良いアイデアがありません.
 
 * ToDO [/]
 

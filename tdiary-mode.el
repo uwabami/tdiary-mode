@@ -1,7 +1,7 @@
 ;;; tdiary-mode.el --- Major mode for tDiary editing -*- coding: utf-8 -*-
 ;;
 ;; Copyright (C) 2002 Junichiro Kita
-;;               2019 Youhei SASAKI
+;;               2019-2020 Youhei SASAKI
 ;; Author: Junichiro Kita <kita@kitaj.no-ip.com>
 ;;         Youhei SASAKI <uwabami@gfd-dennou.org>
 ;; Version: 0.0.2
@@ -59,7 +59,8 @@
 ;; - bug fix
 ;; - enable customize-group
 ;; - In tdiary-new-or-replace:tdiary-mode.el:587:12:
-;;   Warning: Use ‘with-current-buffer’ rather than save-excursion+set-buffer.
+;;   Warning: Use ‘with-current-buffer’ rather than
+;;   save-excursion+set-buffer.
 ;;
 ;;; Code:
 (require 'tls)
