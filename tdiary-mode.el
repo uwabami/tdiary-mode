@@ -1,7 +1,7 @@
 ;;; tdiary-mode.el --- Major mode for tDiary editing -*- coding: utf-8 -*-
 ;;
 ;; Copyright (C) 2002 Junichiro Kita
-;;               2019-2020 Youhei SASAKI
+;;               2019-2022 Youhei SASAKI
 ;; Author: Junichiro Kita <kita@kitaj.no-ip.com>
 ;;         Youhei SASAKI <uwabami@gfd-dennou.org>
 ;; Version: 0.0.2
@@ -63,7 +63,7 @@
 ;;   save-excursion+set-buffer.
 ;;
 ;;; Code:
-(require 'tls)
+(require 'network-stream)
 (require 'tempo)
 
 (defvar tdiary-diary-list nil
@@ -232,10 +232,11 @@ If error, return a cons cell (ERRCODE . DESCRIPTION)."
       (setq connection
             (tdiary-as-binary-process
              (if ssl
-                 (open-tls-stream (concat "*request to " server "*")
-                                  buf
-                                  (or tdiary-http-proxy-server server)
-                                  (or tdiary-http-proxy-port port))
+                 (open-network-stream (concat "*request to " server "*")
+                                      buf
+                                      (or tdiary-http-proxy-server server)
+                                      (or tdiary-http-proxy-port port)
+                                      :type 'tls)
                (open-network-stream (concat "*request to " server "*")
                                     buf
                                     (or tdiary-http-proxy-server server)
