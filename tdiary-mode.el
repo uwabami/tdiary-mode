@@ -548,36 +548,35 @@ Dangerous!!!"
         (concat tdiary-diary-url tdiary-index-rb
             "?date=" tdiary-date))))
 
-(defun tdiary-do-replace-entity-ref (from to &optional str)
-  "Replace Diary data from:`FROM' to:'TO' with string:`STR'."
-  (save-excursion
-    (goto-char (point-min))
-    (if (stringp str)
-    (progn
-      (while (string-match from str)
-        (setq str (replace-match to nil nil str)))
-      str)
-      (while (search-forward from nil t)
-    (replace-match to nil nil)))))
-
 (defun tdiary-replace-entity-refs (&optional str)
   "Replace entity references.
 
 If STR is a string, replace entity references within the string.
 Otherwise replace all entity references within current buffer."
-  (tdiary-do-replace-entity-ref
-   "&amp;" "&"
-   (tdiary-do-replace-entity-ref
-    "&lt;" "<"
-    (tdiary-do-replace-entity-ref
-     "&gt;" ">"
-     (tdiary-do-replace-entity-ref "&quot;" "\"" str)))))
+  (let ((entities '(("&amp;"  . "&")
+                    ("&lt;"   . "<")
+                    ("&gt;"   . ">")
+                    ("&quot;" . "\"")
+                    ("&#39;"  . "'")
+                    ("&#x27;" . "'")
+                    ("&apos;" . "'"))))
+    (if (stringp str)
+        (progn
+          (dolist (ent entities)
+            (setq str (replace-regexp-in-string (regexp-quote (car ent))
+                                                (cdr ent)
+                                                str t t)))
+          str)
+      (save-excursion
+        (dolist (ent entities)
+          (goto-char (point-min))
+          (while (search-forward (car ent) nil t)
+            (replace-match (cdr ent) t t)))))))
 
-;(defun tdiary-read-mode (mode)
-;  (let ((default (caar tdiary-edit-mode-list)))
-;    (completing-read "Editing mode: " tdiary-edit-mode-list
-;          nil t (or mode default) nil default)))
-
+;; (defun tdiary-read-mode (mode)
+;;   (let ((default (caar tdiary-edit-mode-list)))
+;;     (completing-read "Editing mode: " tdiary-edit-mode-list
+;;           nil t (or mode default) nil default)))
 
 (defun tdiary-obsolete-check ()
   "Setting tdiary-diary-url in tdiary-init-file is obsolete."
