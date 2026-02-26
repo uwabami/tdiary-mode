@@ -1,4 +1,4 @@
-;;; tdiary-mode.el --- Major mode for tDiary editing -*- lexical-binding: t -*-
+;;; tdiary-mode.el --- Major mode for tDiary editing -*- lexical-binding: t; -*-
 ;;
 ;; Copyright (C) 2002 Junichiro Kita
 ;;               2019-2026 Youhei SASAKI
