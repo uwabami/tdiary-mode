@@ -66,32 +66,122 @@
 (require 'network-stream)
 (require 'tempo)
 
-(defvar tdiary-diary-list nil
-  "List of diary list.
-Each element looks like (NAME URL) or (NAME URL INDEX-RB UPDATE-RB).")
+;; ---------------------------------------------------------------------------
+(defgroup tdiary nil
+  "Major mode for editing tDiary."
+  :prefix "tdiary-"
+  :group 'comm)
 
+(defcustom tdiary-diary-list nil
+  "List of diary list.
+Each element looks like (NAME URL) or (NAME URL INDEX-RB UPDATE-RB)."
+  :type '(repeat sexp)
+  :group 'tdiary)
+
+(defcustom tdiary-index-rb nil
+  "Name of the 'index.rb'."
+  :type '(choice (const :tag "Default" nil) string)
+  :group 'tdiary)
+
+(defcustom tdiary-update-rb "update.rb"
+  "Name of the 'update.rb'."
+  :type 'string
+  :group 'tdiary)
+
+(defcustom tdiary-coding-system 'utf-8-dos
+  "Coding system for tDiary."
+  :type 'coding-system
+  :group 'tdiary)
+
+(defcustom tdiary-style-mode 'html-mode
+  "Major mode to be used for tDiary editing."
+  :type 'function
+  :group 'tdiary)
+
+(defcustom tdiary-plugin-initial-definition
+  '(("my" ("<%=my %Q|" (p "a: ") "|, %Q|" (p "str: ") "| %>"))
+    ("fn" ("<%=fn %Q|" (p "footnote: ") "| %>")))
+  "Initial definition for tDiary tempo."
+  :type '(repeat sexp)
+  :group 'tdiary)
+
+(defcustom tdiary-passwd-file nil
+  "File path to save password cache."
+  :type '(choice (const :tag "None" nil) file)
+  :group 'tdiary)
+
+(defcustom tdiary-passwd-file-mode 384 ;; == 0600
+  "File mode for `tdiary-passwd-file'."
+  :type 'integer
+  :group 'tdiary)
+
+(defcustom tdiary-text-directory-mode 448 ;; == 0700
+  "Directory mode for `tdiary-text-directory'."
+  :type 'integer
+  :group 'tdiary)
+
+(defvar tdiary-csrf-key nil
+  "CSRF protection key. check your tdiary.conf"
+  :type 'string
+  :group 'tdiary)
+
+(defcustom tdiary-hour-offset 0
+  "Offset to `current-time'.
+`tdiary-today' returns (current-time + tdiary-hour-offset)."
+  :type 'integer
+  :group 'tdiary)
+
+(defcustom tdiary-text-suffix ".td"
+  "Suffix for saved text files."
+  :type 'string
+  :group 'tdiary)
+
+(defcustom tdiary-text-directory "~/.tdiary-backup/"
+  "Directory where diary is stored locally."
+  :type 'directory
+  :group 'tdiary)
+
+(defcustom tdiary-text-save-p nil
+  "Flag for saving text.
+If non-nil, tdiary buffer is associated to a real file."
+  :type 'boolean
+  :group 'tdiary)
+
+(defcustom tdiary-browser-function nil
+  "Function to call browser.
+If non-nil, `tdiary-update' calls this function."
+  :type '(choice (const :tag "None" nil) function)
+  :group 'tdiary)
+
+(defcustom tdiary-init-file "~/.tdiary"
+  "Init file for tDiary-mode."
+  :type 'file
+  :group 'tdiary)
+
+(defcustom tdiary-http-proxy-server nil
+  "Proxy server for HTTP."
+  :type '(choice (const :tag "None" nil) string)
+  :group 'tdiary)
+
+(defcustom tdiary-http-proxy-port nil
+  "Proxy port for HTTP."
+  :type '(choice (const :tag "None" nil) integer)
+  :group 'tdiary)
+
+(defcustom tdiary-http-timeout 10
+  "Timeout for HTTP in seconds."
+  :type 'integer
+  :group 'tdiary)
+
+;; ---------------------------------------------------------------------------
 (defvar tdiary-diary-name nil
   "Identifier for diary to be updated.")
 
 (defvar tdiary-diary-url nil
   "The tDiary-mode updates this URL.  URL should end with '/'.")
 
-(defvar tdiary-index-rb nil
-  "Name of the 'index.rb'.")
-
-(defvar tdiary-update-rb "update.rb"
-  "Name of the 'update.rb'.")
-
-(defvar tdiary-csrf-key nil
-  "CSRF protection key.")
-
-(defvar tdiary-coding-system 'utf-8-dos)
-
 (defvar tdiary-title nil
   "Title of diary.")
-
-(defvar tdiary-style-mode 'html-mode
-  "Major mode to be used for tDiary editing.")
 
 (defvar tdiary-date nil
   "Date to be updated.")
@@ -108,14 +198,6 @@ It is used in `tdiary-complete-plugin'.")
 (defvar tdiary-completion-finder "\\(\\(<\\|&\\|<%=\\).*\\)\\="
   "Regexp used to find tags to complete.")
 
-(defvar tdiary-plugin-initial-definition
-  '(
-    ("my" ("<%=my %Q|" (p "a: ") "|, %Q|" (p "str: ") "| %>"))
-    ("fn" ("<%=fn %Q|" (p "footnote: ") "| %>"))
-    )
-  "Initial definition for tDiary tempo."
-)
-
 (defvar tdiary-edit-mode-list '(("append") ("replace")))
 
 (defvar tdiary-plugin-definition nil
@@ -127,49 +209,17 @@ template.  See tempo.info for details.")
 (defvar tdiary-complete-plugin-history nil
   "Minibuffer history list for `tdiary-complete-plugin'.")
 
-(defvar tdiary-passwd-file nil)
-(defvar tdiary-passwd-file-mode 384) ;; == 0600
-(defvar tdiary-text-directory-mode 448) ;; == 0700
-
 (defvar tdiary-passwd-cache nil
   "Cache for username and password.")
 
-(defvar tdiary-hour-offset 0
-  "Offset to `current-time'.
-`tdiary-today' returns (current-time + tdiary-hour-offset).")
-
-(defvar tdiary-text-suffix ".td")
-
-(defvar tdiary-text-directory nil
-  "Directory where diary is stored.")
-
-(defvar tdiary-text-save-p nil
-  "Flag for saving text.
-If non-nil, tdiary buffer is associated to a real file,
-named `tdiary-date' + `tdiary-text-suffix'.")
-
-(defvar tdiary-browser-function nil
-  "Function to call browser.
-If non-nil, `tdiary-update' calls this function.  The function
-is expected to accept only one argument(URL).")
-
 (defvar tdiary-mode-hook nil
   "Hook run when entering tDiary mode.")
-
-(defvar tdiary-init-file "~/.tdiary"
-  "Init file for tDiary-mode.")
 
 ;(defvar tdiary-plugin-dir nil
 ;  "Path to plugins.  It must be a mounted file system.")
 ;(defvar tdiary-plugin-definition-regexp "^[ \t]*def[ \t]+\\(.+?\\)[ \t]*\\(?:$\\|;\\|([ \t]*\\(.*?\\)[ \t]*)\\)")
 
-(defvar tdiary-http-proxy-server nil
-  "Proxy server for HTTP.")
-(defvar tdiary-http-proxy-port   nil
-  "Proxy port for HTTP.")
-
-(defvar tdiary-http-timeout 10
-  "Timeout for HTTP.")
+;; ---------------------------------------------------------------------------
 
 (defmacro tdiary-as-binary-process (&rest body)
   "Execute `BODY' as binary.  This macro is imported from apel."
@@ -202,7 +252,6 @@ At first, encode STR using CODING, then url-hexify."
             (upcase (format "%%%x" char)))
         (char-to-string char))))
    (encode-coding-string str coding) ""))
-
 
 (defun tdiary-http-fetch (url method &optional user pass data)
   "Fetch via HTTP.
@@ -508,24 +557,24 @@ Dangerous!!!"
       (error "The tDiary POST: %s - %s" (car buf) (cdr buf)))))
 
 (defun tdiary-post-text ()
-  "Post tDiary data."
-  (let* ((dirname (expand-file-name tdiary-diary-name
-                    (or tdiary-text-directory
-                    (expand-file-name "~/"))))
-     (filename (expand-file-name (concat tdiary-date tdiary-text-suffix)
-                     dirname)))
+  "Post tDiary data"
+  (let* ((site-name (or tdiary-diary-name "default"))
+         (base-dir  (or tdiary-text-directory (expand-file-name "~/.tdiary-backup/")))
+         (dirname   (expand-file-name site-name base-dir))
+         (filename  (expand-file-name (concat tdiary-date tdiary-text-suffix) dirname)))
     (unless (file-directory-p dirname)
       (make-directory dirname t)
       (set-file-modes dirname tdiary-text-directory-mode))
 
     ;; If buffer-file-name is tdiary-text-directory/tdiary-diary-name/yyyymmdd.td
     ;; do nothing.
-    (unless (equal filename buffer-file-name)
-      (cond
-       ((equal tdiary-edit-mode "replace")
-    (write-region (point-min) (point-max) filename))
-       ((equal tdiary-edit-mode "append")
-    (write-region (point-min) (point-max) filename t))))))
+    (let ((current-file (and buffer-file-name (expand-file-name buffer-file-name))))
+      (unless (equal filename current-file)
+        (cond
+         ((equal tdiary-edit-mode "replace")
+          (write-region (point-min) (point-max) filename))
+         ((equal tdiary-edit-mode "append")
+          (write-region (point-min) (point-max) filename t)))))))
 
 (defun tdiary-update ()
   "Update diary."
@@ -665,9 +714,10 @@ If you want to set up your own key bindings, use `tdiary-mode-hook'.")
 
 (defun tdiary-make-temp-file-name ()
   "Create temporary file for diary."
-  (let ((tmpdir (expand-file-name tdiary-diary-name
-                  (expand-file-name (user-login-name)
-                            temporary-file-directory))))
+  (let* ((site-name (or tdiary-diary-name "default"))
+         (tmpdir (expand-file-name site-name
+                                   (expand-file-name (user-login-name)
+                                                     temporary-file-directory))))
     (unless (file-directory-p tmpdir)
       (make-directory tmpdir t)
       (set-file-modes tmpdir tdiary-text-directory-mode))
@@ -729,9 +779,10 @@ The value of `tdiary-style-mode' will be used as actual major mode.
       (setq tdiary-date (match-string 1 buf-name))))
     (setq tdiary-date (tdiary-read-date nil))
     (if tdiary-text-save-p
-    (set-visited-file-name (tdiary-make-temp-file-name))
+        (unless buffer-file-name
+          (set-visited-file-name (tdiary-make-temp-file-name)))
       (unless (string= (buffer-name) tdiary-date)
-    (rename-buffer tdiary-date t))))
+        (rename-buffer tdiary-date t))))
 
   (let ((init (intern (concat "tdiary-" (symbol-name tdiary-style-mode) "-init"))))
     (if (fboundp init) (funcall init)))

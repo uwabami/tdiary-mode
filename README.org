@@ -20,7 +20,7 @@
 (setq tdiary-text-directory (expand-file-name "~/path-to-saved-diary"))
 ;; preview に使う関数
 (setq tdiary-browser-function 'browse-url)
-;; csrf key
+;; CSRF key ;; tdiary.conf から csrf.protection.key をコピーする
 (setq tdiary-csrf-key "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 ;; スタイルに応じて: org スタイル
 (setq  tdiary-style-mode 'org-mode
@@ -71,11 +71,11 @@ M-x tdiary-password-save
   sshができない場合は何かしらの方法でCSRF KEYを知る必要がありますが,
   良いアイデアがありません.
 
-* ToDO [/]
+* ToDO [0/3]
 
-  - [ ] melpa への登録申請
   - [ ] 認証情報を =auth-source= で扱う
   - [ ] Customize 対応
+  - [ ] melpa への登録申請
 
 * Contributing
 
