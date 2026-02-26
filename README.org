@@ -71,10 +71,11 @@ M-x tdiary-password-save
   sshができない場合は何かしらの方法でCSRF KEYを知る必要がありますが,
   良いアイデアがありません.
 
-* ToDO [0/3]
+* ToDO [1/4]
 
   - [ ] 認証情報を =auth-source= で扱う
-  - [ ] Customize 対応
+  - [X] Customize 対応
+  - [ ] テストの作成
   - [ ] melpa への登録申請
 
 * Contributing

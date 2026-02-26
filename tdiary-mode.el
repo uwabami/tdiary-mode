@@ -1,10 +1,10 @@
-;;; tdiary-mode.el --- Major mode for tDiary editing -*- coding: utf-8 -*-
+;;; tdiary-mode.el --- Major mode for tDiary editing -*- lexical-binding: t -*-
 ;;
 ;; Copyright (C) 2002 Junichiro Kita
-;;               2019-2022 Youhei SASAKI
+;;               2019-2026 Youhei SASAKI
 ;; Author: Junichiro Kita <kita@kitaj.no-ip.com>
 ;;         Youhei SASAKI <uwabami@gfd-dennou.org>
-;; Version: 0.0.2
+;; Version: 0.0.3
 ;; Keywords: comm
 ;; License: GPL-2.0+
 ;; Homepage: https://uwabami.github.com/tdiary-mode/
@@ -58,9 +58,6 @@
 ;; - find plugin definition automatically(needs modification for plugin)
 ;; - bug fix
 ;; - enable customize-group
-;; - In tdiary-new-or-replace:tdiary-mode.el:587:12:
-;;   Warning: Use ‘with-current-buffer’ rather than
-;;   save-excursion+set-buffer.
 ;;
 ;;; Code:
 (require 'network-stream)
@@ -218,6 +215,9 @@ template.  See tempo.info for details.")
 ;(defvar tdiary-plugin-dir nil
 ;  "Path to plugins.  It must be a mounted file system.")
 ;(defvar tdiary-plugin-definition-regexp "^[ \t]*def[ \t]+\\(.+?\\)[ \t]*\\(?:$\\|;\\|([ \t]*\\(.*?\\)[ \t]*)\\)")
+
+(defvar tdiary--request-url 'unbound
+  "Internal variable to pass URL request to tdiary-mode-setup.")
 
 ;; ---------------------------------------------------------------------------
 
@@ -467,29 +467,27 @@ If there are no completable text, call `tdiary-do-complete-plugin'."
 
 (defun tdiary-passwd-file-load ()
   "Load password alist."
-  (save-excursion
-    (let ((buf (get-buffer-create "*tdiary-passwd-cache*")))
-      (when (and tdiary-passwd-file
-         (file-readable-p tdiary-passwd-file))
-    (set-buffer buf)
-    (insert-file-contents tdiary-passwd-file)
-    (setq tdiary-passwd-cache (read buf)))
+  (let ((buf (get-buffer-create "*tdiary-passwd-cache*")))
+    (when (and tdiary-passwd-file
+               (file-readable-p tdiary-passwd-file))
+      (with-current-buffer buf
+        (insert-file-contents tdiary-passwd-file)
+        (setq tdiary-passwd-cache (read buf)))
       (kill-buffer buf))))
 
 (defun tdiary-passwd-file-save ()
   "Save password alist.
 Dangerous!!!"
   (interactive)
-  (save-excursion
-    (let ((buf (get-buffer-create "*tdiary-passwd-cache*")))
-      (set-buffer buf)
+  (let ((buf (get-buffer-create "*tdiary-passwd-cache*")))
+    (with-current-buffer buf
       (erase-buffer)
       (prin1 tdiary-passwd-cache buf)
       (terpri buf)
       (when (and tdiary-passwd-file
-         (file-writable-p tdiary-passwd-file))
-    (write-region (point-min) (point-max) tdiary-passwd-file)
-    (set-file-modes tdiary-passwd-file tdiary-passwd-file-mode))
+                 (file-writable-p tdiary-passwd-file))
+        (write-region (point-min) (point-max) tdiary-passwd-file)
+        (set-file-modes tdiary-passwd-file tdiary-passwd-file-mode))
       (kill-buffer buf))))
 
 (defun tdiary-passwd-cache-clear (url)
@@ -527,32 +525,32 @@ Dangerous!!!"
     (setq year (match-string 1 date)
       month (match-string 2 date)
       day (match-string 3 date))
-    (add-to-list 'post-data (cons "old" date))
-    (add-to-list 'post-data (cons "year" year))
-    (add-to-list 'post-data (cons "month" month))
-    (add-to-list 'post-data (cons "day" day))
-    (if tdiary-csrf-key (add-to-list 'post-data (cons "csrf_protection_key" tdiary-csrf-key)))
+    (push (cons "old" date) post-data)
+    (push (cons "year" year) post-data)
+    (push (cons "month" month) post-data)
+    (push (cons "day" day) post-data)
+    (if tdiary-csrf-key (push (cons "csrf_protection_key" tdiary-csrf-key) post-data))
     (or (equal mode "edit")
-        (add-to-list 'post-data
-                     (cons "title"
-                           (tdiary-url-hexify-string
-                            title
-                            tdiary-coding-system))))
-    (add-to-list 'post-data (cons mode mode))
+        (push (cons "title"
+                    (tdiary-url-hexify-string
+                     title
+                     tdiary-coding-system))
+              post-data))
+    (push (cons mode mode) post-data)
     (and data
-         (add-to-list 'post-data
-                      (cons "body"
-                            (tdiary-url-hexify-string
-                             data
-                             tdiary-coding-system))))
+         (push (cons "body"
+                     (tdiary-url-hexify-string
+                      data
+                      tdiary-coding-system))
+               post-data))
     (setq buf (tdiary-http-fetch url 'post user pass post-data))
     (if (bufferp buf)
-    (save-excursion
-      (tdiary-passwd-cache-save url user pass)
-      (set-buffer buf)
-      (decode-coding-region (point-min) (point-max) tdiary-coding-system)
-      (goto-char (point-min))
-      buf)
+        (progn
+          (tdiary-passwd-cache-save url user pass)
+          (set-buffer buf)
+          (decode-coding-region (point-min) (point-max) tdiary-coding-system)
+          (goto-char (point-min))
+          buf)
       (tdiary-passwd-cache-clear url)
       (error "The tDiary POST: %s - %s" (car buf) (cdr buf)))))
 
@@ -634,66 +632,66 @@ Otherwise replace all entity references within current buffer."
     (sit-for 5)))
 
 ;;;###autoload
-(defun tdiary-setup-diary-url (select-url)
-  "Setting tdiary url:`SELECT-URL'.
+(defun tdiary-setup-diary-url (url)
+  "Setting tdiary url:`URL'.
 The tdiary-diary-url in tdiary-init-file is obsolete."
   (tdiary-obsolete-check)
   (unless tdiary-diary-url
     (let* ((selected (car tdiary-diary-list))
-       (default (car selected)))
-      (when select-url
-    (setq selected (assoc (completing-read "Select SITE: " tdiary-diary-list
-                           nil t default nil default)
-                  tdiary-diary-list)))
+           (default (car selected)))
+      (when url
+        (setq selected (assoc (completing-read "Select SITE: " tdiary-diary-list
+                                               nil t default nil default)
+                              tdiary-diary-list)))
       (setq tdiary-diary-name (nth 0 selected)
-        tdiary-diary-url (nth 1 selected))
+            tdiary-diary-url (nth 1 selected))
       (and (eq (length selected) 4)
-       (setq tdiary-index-rb (nth 2 selected)
-         tdiary-update-rb (nth 3 selected))))))
+           (setq tdiary-index-rb (nth 2 selected)
+                 tdiary-update-rb (nth 3 selected))))))
 
-(defun tdiary-new-or-replace (replacep select-url)
-  "Check tdiary of URL:`SELECT-URL' as `REPLACEP'."
+(defun tdiary-new-or-replace (replacep url)
+  "Check tdiary of URL:`URL' as `REPLACEP'."
   (let (buf)
     (setq buf (generate-new-buffer "*tdiary tmp*"))
     (switch-to-buffer buf)
-    (tdiary-mode)
+    (let ((tdiary--request-url url))
+      (tdiary-mode))
     (setq tdiary-edit-mode "append")
     (let (start end body title csrf-key)
       (save-excursion
-    (setq buf (tdiary-post "edit" tdiary-date nil))
-    (when (bufferp buf)
-      (save-excursion
-        (set-buffer buf)
-        (if (re-search-forward "<input [^>]+name=\"csrf_protection_key\" [^>]*value=\"\\([^>\"]*\\)\">" nil t nil)
-        (setq csrf-key (match-string 1)))
-        (re-search-forward "<input [^>]+name=\"title\" [^>]+value=\"\\([^>\"]*\\)\">" nil t nil)
-        (setq title (match-string 1))
-        (re-search-forward "<textarea [^>]+>" nil t nil)
-        (setq start (match-end 0))
-        (re-search-forward "</textarea>" nil t nil)
-        (setq end (match-beginning 0))
-        (setq body (buffer-substring start end))
-        )
-      (setq tdiary-csrf-key (and csrf-key (tdiary-replace-entity-refs csrf-key)))
-      (when replacep
-        (insert body)
-        (setq tdiary-edit-mode "replace")
-        (setq tdiary-title (tdiary-replace-entity-refs title))
-        (goto-char (point-min))
-        (tdiary-replace-entity-refs)
-        (set-buffer-modified-p nil)))))))
+        (setq buf (tdiary-post "edit" tdiary-date nil))
+        (when (bufferp buf)
+          (with-current-buffer buf
+            (if (re-search-forward "<input [^>]+name=\"csrf_protection_key\" [^>]*value=\"\\([^>\"]*\\)\">" nil t nil)
+                (setq csrf-key (match-string 1)))
+            (re-search-forward "<input [^>]+name=\"title\" [^>]+value=\"\\([^>\"]*\\)\">" nil t nil)
+            (setq title (match-string 1))
+            (re-search-forward "<textarea [^>]+>" nil t nil)
+            (setq start (match-end 0))
+            (re-search-forward "</textarea>" nil t nil)
+            (setq end (match-beginning 0))
+            (setq body (buffer-substring start end))
+            )
+          (setq tdiary-csrf-key (and csrf-key (tdiary-replace-entity-refs csrf-key)))
+          (when replacep
+            (insert body)
+            (setq tdiary-edit-mode "replace")
+            (setq tdiary-title (tdiary-replace-entity-refs title))
+            (goto-char (point-min))
+            (tdiary-replace-entity-refs)
+            (set-buffer-modified-p nil)))))))
 
 ;;;###autoload
-(defun tdiary-new (&optional select-url)
-  "Create New diary of URL:`SELECT-URL'."
+(defun tdiary-new (&optional url)
+  "Create New diary of URL:`URL'."
   (interactive "P")
-  (tdiary-new-or-replace nil select-url))
+  (tdiary-new-or-replace nil url))
 
 ;;;###autoload
-(defun tdiary-replace (&optional select-url)
-  "Replace New diary of URL:`SELECT-URL'."
+(defun tdiary-replace (&optional url)
+  "Replace New diary of URL:`URL'."
   (interactive "P")
-  (tdiary-new-or-replace t select-url))
+  (tdiary-new-or-replace t url))
 
 (defvar tdiary-mode-map (make-sparse-keymap)
   "Set up keymap for tdiary-mode.
@@ -756,37 +754,30 @@ The value of `tdiary-style-mode' will be used as actual major mode.
   (make-local-variable 'tdiary-update-rb)
   (make-local-variable 'tdiary-csrf-key)
   (setq require-final-newline t
-    indent-tabs-mode nil
-    tdiary-edit-mode "replace"
-    tdiary-date (format-time-string "%Y%m%d" (tdiary-today)))
-
+        indent-tabs-mode nil
+        tdiary-edit-mode "replace"
+        tdiary-date (format-time-string "%Y%m%d" (tdiary-today)))
   (tdiary-load-init-file)
-
-  (tdiary-setup-diary-url (if (boundp 'select-url)
-                  select-url
-                t))
-
+  (tdiary-setup-diary-url (if (eq tdiary--request-url 'unboundq)
+                              select-url
+                            t))
   (set-buffer-file-coding-system tdiary-coding-system)
-
   (or tdiary-passwd-cache
       (tdiary-passwd-file-load))
-
   (if buffer-file-name
       (let ((buf-name (file-name-nondirectory buffer-file-name)))
-    (when (string-match
-           "\\([0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]\\)"
-           buf-name)
-      (setq tdiary-date (match-string 1 buf-name))))
+        (when (string-match
+               "\\([0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]\\)"
+               buf-name)
+          (setq tdiary-date (match-string 1 buf-name))))
     (setq tdiary-date (tdiary-read-date nil))
     (if tdiary-text-save-p
         (unless buffer-file-name
           (set-visited-file-name (tdiary-make-temp-file-name)))
       (unless (string= (buffer-name) tdiary-date)
         (rename-buffer tdiary-date t))))
-
   (let ((init (intern (concat "tdiary-" (symbol-name tdiary-style-mode) "-init"))))
     (if (fboundp init) (funcall init)))
-
   (run-hooks 'tdiary-mode-hook))
 
 (defun tdiary-mode-toggle (&optional arg)
