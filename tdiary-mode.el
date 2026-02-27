@@ -649,49 +649,58 @@ The tdiary-diary-url in tdiary-init-file is obsolete."
            (setq tdiary-index-rb (nth 2 selected)
                  tdiary-update-rb (nth 3 selected))))))
 
-(defun tdiary-new-or-replace (replacep url)
-  "Check tdiary of URL:`URL' as `REPLACEP'."
-  (let (buf)
-    (setq buf (generate-new-buffer "*tdiary tmp*"))
-    (switch-to-buffer buf)
+(defun tdiary--new-or-replace (replacep url)
+  (let ((edit-buf (generate-new-buffer "*tdiary tmp*")))
+    (switch-to-buffer edit-buf)
     (let ((tdiary--request-url url))
       (tdiary-mode))
     (setq tdiary-edit-mode "append")
-    (let (start end body title csrf-key)
-      (save-excursion
-        (setq buf (tdiary-post "edit" tdiary-date nil))
-        (when (bufferp buf)
-          (with-current-buffer buf
-            (if (re-search-forward "<input [^>]+name=\"csrf_protection_key\" [^>]*value=\"\\([^>\"]*\\)\">" nil t nil)
-                (setq csrf-key (match-string 1)))
-            (re-search-forward "<input [^>]+name=\"title\" [^>]+value=\"\\([^>\"]*\\)\">" nil t nil)
-            (setq title (match-string 1))
-            (re-search-forward "<textarea [^>]+>" nil t nil)
-            (setq start (match-end 0))
-            (re-search-forward "</textarea>" nil t nil)
-            (setq end (match-beginning 0))
-            (setq body (buffer-substring start end))
-            )
+    (let (start body title csrf-key http-buf)
+      (setq http-buf (tdiary-post "edit" tdiary-date nil))
+      (when (bufferp http-buf)
+        (with-current-buffer http-buf
+          (let ((case-fold-search t))
+            (goto-char (point-min))
+            (when (re-search-forward "name=[\"']csrf_protection_key[\"'][^>]*value=[\"']\\([^\"']*\\)[\"']" nil t)
+              (setq csrf-key (match-string 1)))
+            (goto-char (point-min))
+            (when (re-search-forward "name=[\"']title[\"'][^>]*value=[\"']\\([^\"']*\\)[\"']" nil t)
+              (setq title (match-string 1)))
+            (goto-char (point-min))
+            (if (re-search-forward "<textarea[^>]*>" nil t)
+                (progn
+                  (setq start (match-end 0))
+                  (if (re-search-forward "</textarea>" nil t)
+                      (setq body (buffer-substring start (match-beginning 0)))
+                    (setq body "")))
+              (setq body ""))))
+        (with-current-buffer edit-buf
           (setq tdiary-csrf-key (and csrf-key (tdiary-replace-entity-refs csrf-key)))
           (when replacep
-            (insert body)
+            (if (and (stringp body) (> (length body) 0))
+                (insert body)
+              ;; (insert "【デバッグ出力：抽出失敗】\n")
+              )
             (setq tdiary-edit-mode "replace")
-            (setq tdiary-title (tdiary-replace-entity-refs title))
+            (when title
+              (setq tdiary-title (tdiary-replace-entity-refs title)))
             (goto-char (point-min))
             (tdiary-replace-entity-refs)
-            (set-buffer-modified-p nil)))))))
+            (if (and tdiary-text-save-p buffer-file-name)
+                (save-buffer)
+              (set-buffer-modified-p nil))))))))
 
 ;;;###autoload
 (defun tdiary-new (&optional url)
   "Create New diary of URL:`URL'."
   (interactive "P")
-  (tdiary-new-or-replace nil url))
+  (tdiary--new-or-replace nil url))
 
 ;;;###autoload
 (defun tdiary-replace (&optional url)
   "Replace New diary of URL:`URL'."
   (interactive "P")
-  (tdiary-new-or-replace t url))
+  (tdiary--new-or-replace t url))
 
 (defvar tdiary-mode-map (make-sparse-keymap)
   "Set up keymap for tdiary-mode.
@@ -711,15 +720,14 @@ If you want to set up your own key bindings, use `tdiary-mode-hook'.")
       (load init-file t t))))
 
 (defun tdiary-make-temp-file-name ()
-  "Create temporary file for diary."
+  "Get the local backup file name for the diary (bypassing /tmp/)."
   (let* ((site-name (or tdiary-diary-name "default"))
-         (tmpdir (expand-file-name site-name
-                                   (expand-file-name (user-login-name)
-                                                     temporary-file-directory))))
-    (unless (file-directory-p tmpdir)
-      (make-directory tmpdir t)
-      (set-file-modes tmpdir tdiary-text-directory-mode))
-    (expand-file-name tdiary-date tmpdir)))
+         (base-dir  (or tdiary-text-directory (expand-file-name "~/.tdiary-backup/")))
+         (dirname   (expand-file-name site-name base-dir)))
+    (unless (file-directory-p dirname)
+      (make-directory dirname t)
+      (set-file-modes dirname tdiary-text-directory-mode))
+    (expand-file-name (concat tdiary-date tdiary-text-suffix) dirname)))
 
 (defun tdiary-html-mode-init ()
   "Initialize tDiary for default style."
@@ -773,7 +781,8 @@ The value of `tdiary-style-mode' will be used as actual major mode.
     (setq tdiary-date (tdiary-read-date nil))
     (if tdiary-text-save-p
         (unless buffer-file-name
-          (set-visited-file-name (tdiary-make-temp-file-name)))
+          (let ((change-major-mode-with-file-name nil))
+            (set-visited-file-name (tdiary-make-temp-file-name))))
       (unless (string= (buffer-name) tdiary-date)
         (rename-buffer tdiary-date t))))
   (let ((init (intern (concat "tdiary-" (symbol-name tdiary-style-mode) "-init"))))
