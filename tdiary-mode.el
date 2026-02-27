@@ -117,7 +117,7 @@ Each element looks like (NAME URL) or (NAME URL INDEX-RB UPDATE-RB)."
   :type 'integer
   :group 'tdiary)
 
-(defvar tdiary-csrf-key nil
+(defcustom tdiary-csrf-key nil
   "CSRF protection key. check your tdiary.conf"
   :type 'string
   :group 'tdiary)
