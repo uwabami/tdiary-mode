@@ -7,7 +7,7 @@
 ;; Version: 0.0.3
 ;; Keywords: comm
 ;; License: GPL-2.0+
-;; Homepage: https://uwabami.github.com/tdiary-mode/
+;; Homepage: https://github.com/tdiary-contrib/util/tdiary-mode
 ;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -55,9 +55,9 @@
 ;; then, M-x tdiary-passwd-cache-save.  !!DANGEROUS!!
 ;;
 ;; ToDo:
-;; - find plugin definition automatically(needs modification for plugin)
-;; - bug fix
-;; - enable customize-group
+;; - find plugin definition automatically: needs modification for plugin
+;; - Handling authinfo by `auth-source'
+;; - create test
 ;;
 ;;; Code:
 (require 'network-stream)
