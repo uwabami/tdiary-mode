@@ -7,7 +7,7 @@
 ;; Version: 0.0.3
 ;; Keywords: comm
 ;; License: GPL-2.0+
-;; Homepage: https://uwabami.github.com/tdiary-mode/
+;; Homepage: https://github.com/tdiary-contrib/util/tdiary-mode
 ;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -55,9 +55,9 @@
 ;; then, M-x tdiary-passwd-cache-save.  !!DANGEROUS!!
 ;;
 ;; ToDo:
-;; - find plugin definition automatically(needs modification for plugin)
-;; - bug fix
-;; - enable customize-group
+;; - find plugin definition automatically: needs modification for plugin
+;; - Handling authinfo by `auth-source'
+;; - create test
 ;;
 ;;; Code:
 (require 'network-stream)
@@ -311,17 +311,25 @@ If error, return a cons cell (ERRCODE . DESCRIPTION)."
                            "\r\n"
                            str))
                "\r\n"))
-      (goto-char (point-min))
-      (while (not (search-forward "</body>" nil t))
-        (unless (accept-process-output connection tdiary-http-timeout)
-          (error "HTTP fetch: Connection timeout!"))
-        (goto-char (point-min)))
+      (catch 'done
+        (while t
+          (goto-char (point-min))
+          (when (or (search-forward "</body>" nil t)
+                    (save-excursion
+                      (goto-char (point-min))
+                      (and (re-search-forward "^HTTP/1\\.[01] 30[0-9]" nil t)
+                           (search-forward "\r\n\r\n" nil t)))
+                    (not (memq (process-status connection) '(open run))))
+            (throw 'done t))
+          (unless (accept-process-output connection tdiary-http-timeout)
+            (when (memq (process-status connection) '(open run))
+              (error "HTTP fetch: Connection timeout!")))))
       (goto-char (point-min))
       (save-excursion
         (if (re-search-forward "HTTP/1.[01] \\([0-9][0-9][0-9]\\) \\(.*\\)" nil t)
             (let ((code (match-string 1))
                   (desc (match-string 2)))
-              (cond ((equal code "200")
+              (cond ((member code '("200" "301" "302" "303"))
                      buf)
                     (t
                      (cons code desc)))))))))
